@@ -3,41 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Kuku's Mobile Beta</title>
+    <title>Kuku's Mobile Beta - Full Map</title>
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; font-family: sans-serif; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; font-family: sans-serif; touch-action: none; }
         canvas { display: block; }
 
         /* Interfaz de Inicio */
         #overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.7); display: flex; flex-direction: column;
-            justify-content: center; align-items: center; z-index: 100; color: white;
+            background: rgba(255, 255, 255, 0.2); backdrop-filter: blur(15px);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 100; color: #222;
         }
         #play-btn { 
-            background: #ff0000; color: white; padding: 20px 50px; 
-            font-size: 24px; border: none; border-radius: 10px; cursor: pointer;
+            background: #222; color: white; padding: 15px 50px; 
+            font-size: 20px; border: none; border-radius: 5px; cursor: pointer;
         }
 
-        /* CONTROLES TÁCTILES */
-        #joystick-container {
-            position: absolute; bottom: 40px; left: 40px;
-            width: 120px; height: 120px; background: rgba(255,255,255,0.2);
-            border-radius: 50%; z-index: 10; touch-action: none;
+        /* Joysticks y Botones */
+        #joy-base {
+            position: absolute; bottom: 30px; left: 30px;
+            width: 100px; height: 100px; background: rgba(255,255,255,0.2);
+            border-radius: 50%; z-index: 10;
         }
-        #joystick-knob {
-            position: absolute; top: 35px; left: 35px;
-            width: 50px; height: 50px; background: rgba(255,255,255,0.5);
+        #joy-stick {
+            position: absolute; top: 30px; left: 30px;
+            width: 40px; height: 40px; background: rgba(255,255,255,0.5);
             border-radius: 50%; pointer-events: none;
         }
-        .action-btn {
-            position: absolute; bottom: 40px; right: 40px;
-            width: 80px; height: 80px; background: rgba(255,0,0,0.5);
-            border-radius: 50%; z-index: 10; display: flex;
-            justify-content: center; align-items: center; color: white;
-            font-weight: bold; font-size: 14px; touch-action: none;
+        .btn {
+            position: absolute; width: 70px; height: 70px; border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            color: white; font-weight: bold; font-size: 12px; z-index: 10;
         }
-        #jump-btn { bottom: 140px; right: 40px; background: rgba(255,255,255,0.3); }
+        #btn-shoot { bottom: 30px; right: 30px; background: rgba(255,0,0,0.6); }
+        #btn-jump { bottom: 110px; right: 30px; background: rgba(0,0,0,0.4); }
 
         #crosshair { 
             position: absolute; top: 50%; left: 50%; width: 10px; height: 10px; 
@@ -49,14 +49,13 @@
 <body>
 
     <div id="overlay">
-        <h1>KUKU'S MOBILE</h1>
-        <p>Beta de Pruebas</p>
-        <button id="play-btn">EMPEZAR</button>
+        <h1 style="font-size: 40px; margin-bottom: 10px;">KUKU'S BETA</h1>
+        <button id="play-btn">JUGAR</button>
     </div>
 
-    <div id="joystick-container"><div id="joystick-knob"></div></div>
-    <div id="shoot-btn" class="action-btn">FUEGO</div>
-    <div id="jump-btn" class="action-btn">SALTO</div>
+    <div id="joy-base"><div id="joy-stick"></div></div>
+    <div id="btn-shoot" class="btn">FUEGO</div>
+    <div id="btn-jump" class="btn">SALTO</div>
     <div id="crosshair"></div>
 
     <script type="importmap">
@@ -67,94 +66,93 @@
         import * as THREE from 'three';
 
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x87ceeb);
+        scene.background = new THREE.Color(0xaaccff);
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // MAPA BÁSICO
-        const floor = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), new THREE.MeshStandardMaterial({ color: 0x555555 }));
+        // --- MAPA COMPLETO ---
+        const obstacles = [];
+        const floor = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), new THREE.MeshStandardMaterial({ color: 0xcccccc }));
         floor.rotation.x = -Math.PI / 2;
         scene.add(floor);
-        scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+
+        function createBox(w, h, d, x, y, z) {
+            const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ color: 0x777777 }));
+            b.position.set(x, y, z);
+            scene.add(b);
+            obstacles.push(b);
+        }
+        // Muros perimetrales
+        createBox(100, 5, 1, 0, 2.5, 50); createBox(100, 5, 1, 0, 2.5, -50);
+        createBox(1, 5, 100, 50, 2.5, 0); createBox(1, 5, 100, -50, 2.5, 0);
+        // Cajas
+        for(let i=0; i<15; i++) createBox(4, 4, 4, (Math.random()-0.5)*70, 2, (Math.random()-0.5)*70);
+
+        const enemy = new THREE.Mesh(new THREE.BoxGeometry(1.5, 3.5, 1.5), new THREE.MeshStandardMaterial({ color: 0xff0000 }));
+        enemy.position.set(20, 1.75, -20);
+        scene.add(enemy);
+
+        scene.add(new THREE.AmbientLight(0xffffff, 0.7));
         const sun = new THREE.DirectionalLight(0xffffff, 1);
         sun.position.set(10, 20, 10);
         scene.add(sun);
 
-        const enemy = new THREE.Mesh(new THREE.BoxGeometry(1.5, 3, 1.5), new THREE.MeshStandardMaterial({ color: 0xff0000 }));
-        enemy.position.set(15, 1.5, -15);
-        scene.add(enemy);
-
         camera.position.set(0, 1.6, 0);
 
-        // --- LÓGICA DE MOVIMIENTO TÁCTIL ---
-        let moveData = { x: 0, y: 0 };
+        // --- CONTROLES MÓVILES ---
+        let moveVec = { x: 0, y: 0 };
+        let rotY = 0, rotX = 0;
         let isMoving = false;
-        let rotationY = 0;
-        let rotationX = 0;
+        let lastTouch = null;
 
-        // Joystick Izquierdo
-        const joystick = document.getElementById('joystick-container');
-        const knob = document.getElementById('joystick-knob');
+        // Joystick
+        const joyBase = document.getElementById('joy-base');
+        const joyStick = document.getElementById('joy-stick');
 
-        joystick.addEventListener('touchstart', (e) => { isMoving = true; });
-        joystick.addEventListener('touchmove', (e) => {
+        joyBase.addEventListener('touchstart', (e) => { isMoving = true; });
+        joyBase.addEventListener('touchmove', (e) => {
             const touch = e.touches[0];
-            const rect = joystick.getBoundingClientRect();
-            const centerX = rect.left + rect.width / 2;
-            const centerY = rect.top + rect.height / 2;
-            
-            let dx = touch.clientX - centerX;
-            let dy = touch.clientY - centerY;
-            const dist = Math.min(Math.sqrt(dx*dx + dy*dy), 50);
-            const angle = Math.atan2(dy, dx);
-
-            moveData.x = (Math.cos(angle) * dist) / 50;
-            moveData.y = (Math.sin(angle) * dist) / 50;
-
-            knob.style.transform = `translate(${moveData.x * 40}px, ${moveData.y * 40}px)`;
+            const rect = joyBase.getBoundingClientRect();
+            const cx = rect.left + 50, cy = rect.top + 50;
+            let dx = touch.clientX - cx, dy = touch.clientY - cy;
+            const dist = Math.min(Math.sqrt(dx*dx + dy*dy), 40);
+            const ang = Math.atan2(dy, dx);
+            moveVec.x = (Math.cos(ang) * dist) / 40;
+            moveVec.y = (Math.sin(ang) * dist) / 40;
+            joyStick.style.transform = `translate(${moveVec.x * 30}px, ${moveVec.y * 30}px)`;
         });
-        joystick.addEventListener('touchend', () => {
-            isMoving = false;
-            moveData = { x: 0, y: 0 };
-            knob.style.transform = `translate(0px, 0px)`;
+        joyBase.addEventListener('touchend', () => { 
+            isMoving = false; moveVec = {x:0, y:0}; 
+            joyStick.style.transform = `translate(0,0)`;
         });
 
-        // Rotación de cámara con el dedo en pantalla
+        // Rotación con el resto de la pantalla
+        document.addEventListener('touchstart', (e) => {
+            if(e.target.tagName === "CANVAS") lastTouch = e.touches[0];
+        });
         document.addEventListener('touchmove', (e) => {
-            if (e.target.id === "" || e.target.tagName === "CANVAS") {
+            if(lastTouch && e.target.tagName === "CANVAS") {
                 const touch = e.touches[0];
-                if (window.lastTouchX) {
-                    rotationY -= (touch.clientX - window.lastTouchX) * 0.005;
-                    rotationX -= (touch.clientY - window.lastTouchY) * 0.005;
-                    rotationX = Math.max(-Math.PI/2.5, Math.min(Math.PI/2.5, rotationX));
-                }
-                window.lastTouchX = touch.clientX;
-                window.lastTouchY = touch.clientY;
+                rotY -= (touch.clientX - lastTouch.clientX) * 0.007;
+                rotX -= (touch.clientY - lastTouch.clientY) * 0.007;
+                rotX = Math.max(-1.4, Math.min(1.4, rotX));
+                lastTouch = touch;
             }
-        }, { passive: false });
-
-        document.addEventListener('touchend', () => {
-            window.lastTouchX = null;
-            window.lastTouchY = null;
         });
+        document.addEventListener('touchend', () => lastTouch = null);
 
-        // Botones de Acción
-        let velocityY = 0;
-        let canJump = true;
+        // Lógica de Juego
+        let vY = 0, canJ = true;
         const bullets = [];
 
-        document.getElementById('jump-btn').addEventListener('touchstart', () => {
-            if(canJump) { velocityY = 0.2; canJump = false; }
-        });
-
-        document.getElementById('shoot-btn').addEventListener('touchstart', () => {
-            const b = new THREE.Mesh(new THREE.SphereGeometry(0.15), new THREE.MeshBasicMaterial({color: 0xffff00}));
+        document.getElementById('btn-jump').addEventListener('touchstart', () => { if(canJ){ vY=0.22; canJ=false; }});
+        document.getElementById('btn-shoot').addEventListener('touchstart', () => {
+            const b = new THREE.Mesh(new THREE.SphereGeometry(0.2), new THREE.MeshBasicMaterial({color:0xffff00}));
             b.position.copy(camera.position);
-            const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
-            bullets.push({ mesh: b, dir: dir });
-            scene.add(b);
+            const d = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion);
+            bullets.push({m:b, d:d}); scene.add(b);
         });
 
         document.getElementById('play-btn').addEventListener('click', () => {
@@ -163,51 +161,34 @@
 
         function animate() {
             requestAnimationFrame(animate);
-
-            if (document.getElementById('overlay').style.display === 'none') {
-                // Aplicar rotación
-                camera.rotation.set(rotationX, rotationY, 0, 'YXZ');
-
-                // Movimiento
-                if (isMoving) {
-                    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
-                    forward.y = 0; forward.normalize();
-                    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
-                    right.y = 0; right.normalize();
-
-                    camera.position.add(forward.multiplyScalar(-moveData.y * 0.15));
-                    camera.position.add(right.multiplyScalar(moveData.x * 0.15));
+            if(document.getElementById('overlay').style.display === 'none') {
+                camera.rotation.set(rotX, rotY, 0, 'YXZ');
+                
+                if(isMoving) {
+                    const f = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion); f.y=0; f.normalize();
+                    const r = new THREE.Vector3(1,0,0).applyQuaternion(camera.quaternion); r.y=0; r.normalize();
+                    camera.position.add(f.multiplyScalar(-moveVec.y * 0.2));
+                    camera.position.add(r.multiplyScalar(moveVec.x * 0.2));
                 }
 
-                // Gravedad
-                velocityY -= 0.01;
-                camera.position.y += velocityY;
-                if(camera.position.y <= 1.6) { camera.position.y = 1.6; velocityY = 0; canJump = true; }
+                vY -= 0.01; camera.position.y += vY;
+                if(camera.position.y <= 1.6){ camera.position.y=1.6; vY=0; canJ=true; }
 
-                // Enemigo persiguiendo
                 const toP = new THREE.Vector3().subVectors(camera.position, enemy.position).normalize();
-                enemy.position.add(toP.multiplyScalar(0.06));
-                if(camera.position.distanceTo(enemy.position) < 2) location.reload();
+                enemy.position.add(toP.multiplyScalar(0.1));
+                if(camera.position.distanceTo(enemy.position) < 1.8) location.reload();
             }
 
-            // Balas
-            for(let i = bullets.length - 1; i >= 0; i--) {
-                bullets[i].mesh.position.add(bullets[i].dir.clone().multiplyScalar(1.2));
-                if(bullets[i].mesh.position.distanceTo(enemy.position) < 2) {
-                    scene.remove(bullets[i].mesh); bullets.splice(i, 1);
-                    enemy.position.set((Math.random()-0.5)*40, 1.5, (Math.random()-0.5)*40);
+            for(let i=bullets.length-1; i>=0; i--) {
+                bullets[i].m.position.add(bullets[i].d.clone().multiplyScalar(1.5));
+                if(bullets[i].m.position.distanceTo(enemy.position) < 2) {
+                    scene.remove(bullets[i].m); bullets.splice(i,1);
+                    enemy.position.set((Math.random()-0.5)*70, 1.75, (Math.random()-0.5)*70);
                 }
             }
-
             renderer.render(scene, camera);
         }
         animate();
-
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
     </script>
 </body>
 </html>
