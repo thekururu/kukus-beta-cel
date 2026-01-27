@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Kuku's Mobile Beta</title>
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; font-family: sans-serif; }
+        canvas { display: block; }
+
+        /* Interfaz de Inicio */
+        #overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.7); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 100; color: white;
+        }
+        #play-btn { 
+            background: #ff0000; color: white; padding: 20px 50px; 
+            font-size: 24px; border: none; border-radius: 10px; cursor: pointer;
+        }
+
+        /* CONTROLES TÁCTILES */
+        #joystick-container {
+            position: absolute; bottom: 40px; left: 40px;
+            width: 120px; height: 120px; background: rgba(255,255,255,0.2);
+            border-radius: 50%; z-index: 10; touch-action: none;
+        }
+        #joystick-knob {
+            position: absolute; top: 35px; left: 35px;
+            width: 50px; height: 50px; background: rgba(255,255,255,0.5);
+            border-radius: 50%; pointer-events: none;
+        }
+        .action-btn {
+            position: absolute; bottom: 40px; right: 40px;
+            width: 80px; height: 80px; background: rgba(255,0,0,0.5);
+            border-radius: 50%; z-index: 10; display: flex;
+            justify-content: center; align-items: center; color: white;
+            font-weight: bold; font-size: 14px; touch-action: none;
+        }
+        #jump-btn { bottom: 140px; right: 40px; background: rgba(255,255,255,0.3); }
+
+        #crosshair { 
+            position: absolute; top: 50%; left: 50%; width: 10px; height: 10px; 
+            border: 2px solid lime; border-radius: 50%; transform: translate(-50%, -50%); 
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="overlay">
+        <h1>KUKU'S MOBILE</h1>
+        <p>Beta de Pruebas</p>
+        <button id="play-btn">EMPEZAR</button>
+    </div>
+
+    <div id="joystick-container"><div id="joystick-knob"></div></div>
+    <div id="shoot-btn" class="action-btn">FUEGO</div>
+    <div id="jump-btn" class="action-btn">SALTO</div>
+    <div id="crosshair"></div>
+
+    <script type="importmap">
+        { "imports": { "three": "https://unpkg.com/three@0.161.0/build/three.module.js" } }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87ceeb);
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // MAPA BÁSICO
+        const floor = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), new THREE.MeshStandardMaterial({ color: 0x555555 }));
+        floor.rotation.x = -Math.PI / 2;
+        scene.add(floor);
+        scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+        const sun = new THREE.DirectionalLight(0xffffff, 1);
+        sun.position.set(10, 20, 10);
+        scene.add(sun);
+
+        const enemy = new THREE.Mesh(new THREE.BoxGeometry(1.5, 3, 1.5), new THREE.MeshStandardMaterial({ color: 0xff0000 }));
+        enemy.position.set(15, 1.5, -15);
+        scene.add(enemy);
+
+        camera.position.set(0, 1.6, 0);
+
+        // --- LÓGICA DE MOVIMIENTO TÁCTIL ---
+        let moveData = { x: 0, y: 0 };
+        let isMoving = false;
+        let rotationY = 0;
+        let rotationX = 0;
+
+        // Joystick Izquierdo
+        const joystick = document.getElementById('joystick-container');
+        const knob = document.getElementById('joystick-knob');
+
+        joystick.addEventListener('touchstart', (e) => { isMoving = true; });
+        joystick.addEventListener('touchmove', (e) => {
+            const touch = e.touches[0];
+            const rect = joystick.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            
+            let dx = touch.clientX - centerX;
+            let dy = touch.clientY - centerY;
+            const dist = Math.min(Math.sqrt(dx*dx + dy*dy), 50);
+            const angle = Math.atan2(dy, dx);
+
+            moveData.x = (Math.cos(angle) * dist) / 50;
+            moveData.y = (Math.sin(angle) * dist) / 50;
+
+            knob.style.transform = `translate(${moveData.x * 40}px, ${moveData.y * 40}px)`;
+        });
+        joystick.addEventListener('touchend', () => {
+            isMoving = false;
+            moveData = { x: 0, y: 0 };
+            knob.style.transform = `translate(0px, 0px)`;
+        });
+
+        // Rotación de cámara con el dedo en pantalla
+        document.addEventListener('touchmove', (e) => {
+            if (e.target.id === "" || e.target.tagName === "CANVAS") {
+                const touch = e.touches[0];
+                if (window.lastTouchX) {
+                    rotationY -= (touch.clientX - window.lastTouchX) * 0.005;
+                    rotationX -= (touch.clientY - window.lastTouchY) * 0.005;
+                    rotationX = Math.max(-Math.PI/2.5, Math.min(Math.PI/2.5, rotationX));
+                }
+                window.lastTouchX = touch.clientX;
+                window.lastTouchY = touch.clientY;
+            }
+        }, { passive: false });
+
+        document.addEventListener('touchend', () => {
+            window.lastTouchX = null;
+            window.lastTouchY = null;
+        });
+
+        // Botones de Acción
+        let velocityY = 0;
+        let canJump = true;
+        const bullets = [];
+
+        document.getElementById('jump-btn').addEventListener('touchstart', () => {
+            if(canJump) { velocityY = 0.2; canJump = false; }
+        });
+
+        document.getElementById('shoot-btn').addEventListener('touchstart', () => {
+            const b = new THREE.Mesh(new THREE.SphereGeometry(0.15), new THREE.MeshBasicMaterial({color: 0xffff00}));
+            b.position.copy(camera.position);
+            const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+            bullets.push({ mesh: b, dir: dir });
+            scene.add(b);
+        });
+
+        document.getElementById('play-btn').addEventListener('click', () => {
+            document.getElementById('overlay').style.display = 'none';
+        });
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (document.getElementById('overlay').style.display === 'none') {
+                // Aplicar rotación
+                camera.rotation.set(rotationX, rotationY, 0, 'YXZ');
+
+                // Movimiento
+                if (isMoving) {
+                    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+                    forward.y = 0; forward.normalize();
+                    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+                    right.y = 0; right.normalize();
+
+                    camera.position.add(forward.multiplyScalar(-moveData.y * 0.15));
+                    camera.position.add(right.multiplyScalar(moveData.x * 0.15));
+                }
+
+                // Gravedad
+                velocityY -= 0.01;
+                camera.position.y += velocityY;
+                if(camera.position.y <= 1.6) { camera.position.y = 1.6; velocityY = 0; canJump = true; }
+
+                // Enemigo persiguiendo
+                const toP = new THREE.Vector3().subVectors(camera.position, enemy.position).normalize();
+                enemy.position.add(toP.multiplyScalar(0.06));
+                if(camera.position.distanceTo(enemy.position) < 2) location.reload();
+            }
+
+            // Balas
+            for(let i = bullets.length - 1; i >= 0; i--) {
+                bullets[i].mesh.position.add(bullets[i].dir.clone().multiplyScalar(1.2));
+                if(bullets[i].mesh.position.distanceTo(enemy.position) < 2) {
+                    scene.remove(bullets[i].mesh); bullets.splice(i, 1);
+                    enemy.position.set((Math.random()-0.5)*40, 1.5, (Math.random()-0.5)*40);
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
