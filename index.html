@@ -2,44 +2,84 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Kuku's motor Beta</title>
+    <title>Kuku's Beta v10.6 - Classic Style</title>
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; }
-        canvas { display: block; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body, html { width: 100%; height: 100%; overflow: hidden; background-color: #aaccff; }
+        canvas { display: block; width: 100vw; height: 100vh; }
         
-        #overlay {
+        .ui-screen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(255, 255, 255, 0.2); backdrop-filter: blur(15px);
             display: flex; flex-direction: column; justify-content: center; align-items: center;
-            z-index: 100; color: #222;
+            z-index: 100; backdrop-filter: blur(8px); color: white; font-family: 'Courier New', monospace;
         }
-        #overlay h1 { font-size: 70px; margin: 0; font-weight: 900; letter-spacing: -2px; }
-        #play-btn { 
-            background: #222; color: white; padding: 15px 60px; 
-            font-size: 22px; border: none; cursor: pointer; margin-top: 20px;
-            transition: 0.2s;
-        }
-        #play-btn:hover { background: #444; transform: scale(1.05); }
+        #overlay { background: rgba(0,0,0,0.5); }
+        h1 { font-size: 50px; text-shadow: 2px 2px #f00; margin-bottom: 20px; }
+        button { background: #222; color: white; padding: 12px 30px; font-size: 18px; border: 2px solid white; cursor: pointer; margin: 8px; width: 220px; }
+        button:hover { background: white; color: black; }
 
-        #crosshair { 
-            position: absolute; top: 50%; left: 50%; width: 12px; height: 12px; 
-            border: 2px solid #00ff00; border-radius: 50%; transform: translate(-50%, -50%); 
-            pointer-events: none;
+        #help-panel { 
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.95); padding: 30px; border: 2px solid #0f0; 
+            display: none; z-index: 200; color: white; text-align: left;
         }
+
+        #hud { position: absolute; top: 20px; right: 20px; color: #0f0; font-size: 20px; font-weight: bold; z-index: 90; text-shadow: 2px 2px black; text-align: right; }
+        #chat-container { position: absolute; bottom: 30px; left: 20px; width: 400px; z-index: 101; pointer-events: none; }
+        #chat-log { height: 120px; display: flex; flex-direction: column-reverse; color: white; text-shadow: 1px 1px 1px black; overflow: hidden; font-size: 14px; }
+        #chat-input { width: 100%; background: rgba(0,0,0,0.8); border: 1px solid #0f0; color: #0f0; padding: 10px; outline: none; display: none; pointer-events: auto; }
+
+        #debug-info { position: absolute; top: 10px; left: 10px; color: #0f0; font-weight: bold; display: none; z-index: 101; background: rgba(0,0,0,0.6); padding: 10px; border: 1px solid #0f0; }
+        #crosshair { position: absolute; top: 50%; left: 50%; width: 12px; height: 12px; border: 2px solid #0f0; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; z-index: 99; }
     </style>
 </head>
 <body>
 
-    <div id="overlay">
-        <h1>KUKU'S BETA</h1>
-        <button id="play-btn">JUGAR</button>
+    <div id="debug-info"></div>
+
+    <div id="overlay" class="ui-screen">
+        <h1>Kuku´s BETA</h1>
+        <button onclick="startGame()">JUGAR</button>
+        <button onclick="openModos()">MODOS</button>
+    </div>
+
+    <div id="modos-menu" class="ui-screen" style="display:none">
+        <h1>CAMBIAR MODO</h1>
+        <button onclick="setMode('normal')">NORMAL</button>
+        <button onclick="setMode('zombie')">ZOMBIE</button>
+        <button onclick="backToMenu()">VOLVER</button>
+    </div>
+
+    <div id="help-panel">
+        <h2 style="color:#0f0; text-align:center;">CONTROLES</h2><hr><br>
+        W,A,S,D - Moverse / Volar<br>
+        ESPACIO - Saltar / Subir<br>
+        L-SHIFT / CTRL - Bajar (Vuelo)<br>
+        H - Mostrar Ayuda<br>
+        F3 - Datos Debug<br>
+        P - Liberar Mouse (Modo Foto)<br>
+        CLICK - Disparar / Recuperar Mouse<br><br>
+        <button onclick="document.getElementById('help-panel').style.display='none'" style="width:100%">CERRAR</button>
+    </div>
+
+    <div id="death-screen" class="ui-screen" style="display:none; background: rgba(150,0,0,0.85);">
+        <h1>HAS MUERTO</h1>
+        <button onclick="location.reload()">REINTENTAR</button>
+    </div>
+
+    <div id="hud">
+        KILLS: <span id="kill-count">0</span><br>
+        <span id="z-info" style="display:none">HUMANOS: <span id="h-count">10</span></span>
+    </div>
+
+    <div id="chat-container">
+        <div id="chat-log"></div>
+        <input type="text" id="chat-input" placeholder="Escribe algo aqui">
     </div>
 
     <div id="crosshair"></div>
 
-    <script type="importmap">
-        { "imports": { "three": "https://unpkg.com/three@0.161.0/build/three.module.js" } }
-    </script>
+    <script type="importmap"> { "imports": { "three": "https://unpkg.com/three@0.161.0/build/three.module.js" } } </script>
 
     <script type="module">
         import * as THREE from 'three';
@@ -49,137 +89,179 @@
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.shadowMap.enabled = true;
         document.body.appendChild(renderer.domElement);
 
-        scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-        const sun = new THREE.DirectionalLight(0xffffff, 1.0);
+        scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+        const sun = new THREE.DirectionalLight(0xffffff, 0.6);
         sun.position.set(50, 100, 50);
-        sun.castShadow = true;
         scene.add(sun);
 
-        
-        const obstacles = [];
-        const floor = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), new THREE.MeshStandardMaterial({ color: 0xcccccc }));
+        let obstacles = [], enemies = [], allies = [], bullets = [];
+        let keys = {}, currentMode = "normal", isDead = false, killScore = 0, showDebug = false;
+        let vY = 0, canJ = true;
+
+        const floor = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.MeshStandardMaterial({ color: 0xcccccc }));
         floor.rotation.x = -Math.PI / 2;
-        floor.receiveShadow = true;
         scene.add(floor);
 
         function createBox(w, h, d, x, y, z) {
-            const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ color: 0x777777 }));
-            b.position.set(x, y, z);
-            b.castShadow = true; b.receiveShadow = true;
+            const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ color: 0x888888 }));
+            b.position.set(x, h/2, z);
             scene.add(b);
-            obstacles.push(b);
+            obstacles.push(new THREE.Box3().setFromObject(b));
         }
-       
-        createBox(100, 10, 2, 0, 5, 50); createBox(100, 10, 2, 0, 5, -50);
-        createBox(2, 10, 100, 50, 5, 0); createBox(2, 10, 100, -50, 5, 0);
-        // Cajas aleatorias
-        for(let i=0; i<15; i++) createBox(4, 4, 4, (Math.random()-0.5)*70, 2, (Math.random()-0.5)*70);
 
-        const enemy = new THREE.Mesh(
-            new THREE.BoxGeometry(1.5, 3.5, 1.5), 
-            new THREE.MeshStandardMaterial({ color: 0xff0000 })
-        );
-        enemy.position.set(20, 1.75, -20);
-        enemy.castShadow = true;
-        scene.add(enemy);
+        createBox(100, 10, 2, 0, 0, 50); createBox(100, 10, 2, 0, 0, -50);
+        createBox(2, 10, 100, 50, 0, 0); createBox(2, 10, 100, -50, 0, 0);
+        for(let i=0; i<15; i++) createBox(4, 4, 4, (Math.random()-0.5)*70, 0, (Math.random()-0.5)*70);
 
-        
-        const gun = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.5), new THREE.MeshStandardMaterial({color: 0x000}));
-        gun.position.set(0.3, -0.25, -0.4);
-        camera.add(gun);
-        scene.add(camera);
+        function createChar(col, x, z) {
+            const g = new THREE.Group();
+            const b = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2, 1), new THREE.MeshStandardMaterial({ color: col })); b.position.y = 1;
+            const h = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.6), new THREE.MeshStandardMaterial({ color: col })); h.position.y = 2.4;
+            g.add(b, h); g.position.set(x, 0, z);
+            scene.add(g); return g;
+        }
 
-       
-        let keys = {};
-        let velocityY = 0;
-        let canJump = true;
-        const bullets = [];
+        const gun = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.5), new THREE.MeshStandardMaterial({color: 0x222222}));
+        gun.position.set(0.3, -0.2, -0.4); camera.add(gun); scene.add(camera);
+        camera.position.set(0, 1.6, 0);
 
-        document.getElementById('play-btn').addEventListener('click', () => {
+        enemies.push(createChar(0xff0000, 15, -15));
+
+        window.startGame = () => { document.getElementById('overlay').style.display='none'; document.body.requestPointerLock(); };
+        window.openModos = () => { document.getElementById('overlay').style.display='none'; document.getElementById('modos-menu').style.display='flex'; };
+        window.backToMenu = () => { document.getElementById('modos-menu').style.display='none'; document.getElementById('overlay').style.display='flex'; };
+
+        function addLog(t, c="white") {
+            const d = document.createElement('div'); d.textContent = t; d.style.color = c;
+            document.getElementById('chat-log').prepend(d);
+        }
+
+        window.setMode = (m) => {
+            currentMode = m;
+            enemies.forEach(e => scene.remove(e)); enemies = [];
+            allies.forEach(a => scene.remove(a.mesh)); allies = [];
+            document.getElementById('z-info').style.display = (m === 'zombie' ? 'block' : 'none');
+            gun.visible = (m === 'normal' || m === 'zombie');
+            addLog("MODO " + m.toUpperCase() + " ACTIVADO", "#ffff00");
+            
+            enemies.push(createChar(0xff0000, 15, -15));
+            if(m === 'zombie') {
+                for(let i=0; i<10; i++) allies.push({ mesh: createChar(0x00ff00, (Math.random()-0.5)*60, (Math.random()-0.5)*60), infected: false });
+            }
+            if(m === 'normal') camera.position.set(0, 1.6, 0);
+            document.getElementById('modos-menu').style.display='none';
             document.body.requestPointerLock();
-        });
+        };
 
-        document.addEventListener('pointerlockchange', () => {
-            document.getElementById('overlay').style.display = document.pointerLockElement === document.body ? 'none' : 'flex';
+        document.addEventListener('keydown', (e) => {
+            const ci = document.getElementById('chat-input');
+            if(e.code === 'Enter' && document.activeElement === ci) {
+                const v = ci.value.toLowerCase();
+                if(v.includes("bug")) setMode('bug');
+                else if(v.includes("photo")) setMode('photo');
+                else if(v.includes("normal")) setMode('normal');
+                ci.style.display='none'; ci.value=""; document.body.requestPointerLock();
+                return;
+            }
+            if(e.code === 'KeyT' && !isDead) { ci.style.display='block'; setTimeout(()=>ci.focus(), 10); }
+            if(e.code === 'KeyH') { const h = document.getElementById('help-panel'); h.style.display = h.style.display==='block' ? 'none' : 'block'; }
+            if(e.code === 'F3') { showDebug = !showDebug; document.getElementById('debug-info').style.display = showDebug ? 'block' : 'none'; }
+            if(e.code === 'KeyP' && (currentMode === 'photo' || currentMode === 'bug')) document.exitPointerLock();
+            keys[e.code] = true;
         });
-
-        document.addEventListener('keydown', (e) => keys[e.code] = true);
         document.addEventListener('keyup', (e) => keys[e.code] = false);
+
+        document.addEventListener('mousedown', () => {
+            if (document.pointerLockElement === document.body) {
+                if(gun.visible && !isDead) {
+                    const b = new THREE.Mesh(new THREE.SphereGeometry(0.1), new THREE.MeshBasicMaterial({color: 0xffff00}));
+                    camera.getWorldPosition(b.position);
+                    const d = new THREE.Vector3(); camera.getWorldDirection(d);
+                    bullets.push({ mesh: b, dir: d, life: 100 }); scene.add(b);
+                }
+            } else if(document.getElementById('overlay').style.display === 'none') {
+                document.body.requestPointerLock();
+            }
+        });
 
         document.addEventListener('mousemove', (e) => {
             if (document.pointerLockElement === document.body) {
                 camera.rotation.y -= e.movementX * 0.002;
                 camera.rotation.x -= e.movementY * 0.002;
-                camera.rotation.x = Math.max(-Math.PI/2.2, Math.min(Math.PI/2.2, camera.rotation.x));
+                camera.rotation.x = Math.max(-1.45, Math.min(1.45, camera.rotation.x));
             }
         });
         camera.rotation.order = 'YXZ';
 
-        document.addEventListener('mousedown', () => {
-            if (document.pointerLockElement === document.body) {
-                const b = new THREE.Mesh(new THREE.SphereGeometry(0.1), new THREE.MeshBasicMaterial({color: 0xffff00}));
-                camera.getWorldPosition(b.position);
-                const dir = new THREE.Vector3();
-                camera.getWorldDirection(dir);
-                bullets.push({ mesh: b, dir: dir, t: 0 });
-                scene.add(b);
-            }
-        });
-
         function animate() {
             requestAnimationFrame(animate);
-            const delta = 0.016;
-
-            if (document.pointerLockElement === document.body) {
+            if (document.pointerLockElement === document.body && !isDead) {
+                let speed = keys['ShiftLeft'] ? 0.6 : 0.3;
+                const dir = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion); 
+                const side = new THREE.Vector3(1,0,0).applyQuaternion(camera.quaternion);
                 
-                const speed = keys['ShiftLeft'] ? 0.6 : 0.3;
-                const f = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion); f.y = 0; f.normalize();
-                const r = new THREE.Vector3(1,0,0).applyQuaternion(camera.quaternion); r.y = 0; r.normalize();
+                let next = camera.position.clone();
+                if(keys['KeyW']) next.add(dir.clone().multiplyScalar(speed));
+                if(keys['KeyS']) next.add(dir.clone().multiplyScalar(-speed));
+                if(keys['KeyA']) next.add(side.clone().multiplyScalar(-speed));
+                if(keys['KeyD']) next.add(side.clone().multiplyScalar(speed));
 
-                const next = camera.position.clone();
-                if(keys['KeyW']) next.add(f.multiplyScalar(speed));
-                if(keys['KeyS']) next.add(f.multiplyScalar(-speed));
-                if(keys['KeyA']) next.add(r.multiplyScalar(-speed));
-                if(keys['KeyD']) next.add(r.multiplyScalar(speed));
+                if(currentMode === 'normal' || currentMode === 'zombie') {
+                    let col = false;
+                    let pB = new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(next.x, camera.position.y, next.z), new THREE.Vector3(1, 1.8, 1));
+                    for(let o of obstacles) if(pB.intersectsBox(o)) col = true;
+                    if(!col) { camera.position.x = next.x; camera.position.z = next.z; }
 
-               
-                let col = false;
-                const pBox = new THREE.Box3().setFromCenterAndSize(next, new THREE.Vector3(1, 2, 1));
-                for(let o of obstacles) { if(pBox.intersectsBox(new THREE.Box3().setFromObject(o))) col = true; }
-                if(!col) { camera.position.x = next.x; camera.position.z = next.z; }
-
-                velocityY -= 0.015;
-                if(keys['Space'] && canJump) { velocityY = 0.25; canJump = false; }
-                camera.position.y += velocityY;
-                if(camera.position.y <= 1.6) { camera.position.y = 1.6; velocityY = 0; canJump = true; }
-
-                
-                const toP = new THREE.Vector3().subVectors(camera.position, enemy.position).normalize();
-                enemy.position.add(toP.multiplyScalar(0.12));
-                if(camera.position.distanceTo(enemy.position) < 1.7) {
-                    location.reload(); // Muerte rápida
+                    vY -= 0.015; camera.position.y += vY;
+                    if(camera.position.y <= 1.6) { camera.position.y = 1.6; vY = 0; canJ = true; }
+                    if(keys['Space'] && canJ) { vY = 0.28; canJ = false; }
+                } else {
+                    camera.position.copy(next);
+                    if(keys['Space']) camera.position.y += speed;
+                    if(keys['ControlLeft'] || keys['ShiftLeft']) camera.position.y -= speed;
                 }
+
+                enemies.forEach(en => {
+                    if(currentMode !== 'bug' && currentMode !== 'photo') {
+                        let toP = new THREE.Vector3().subVectors(camera.position, en.position); toP.y = 0;
+                        en.position.add(toP.normalize().multiplyScalar(0.12));
+                        en.lookAt(camera.position.x, 0, camera.position.z);
+                        if(en.position.distanceTo(camera.position) < 1.6) {
+                            isDead = true; document.getElementById('death-screen').style.display='flex'; document.exitPointerLock();
+                        }
+                    }
+                    if(currentMode === 'zombie') {
+                        allies.forEach(al => {
+                            if(!al.infected && al.mesh.position.distanceTo(en.position) < 2) {
+                                al.infected = true;
+                                al.mesh.children.forEach(c => c.material.color.set(0xff0000));
+                                enemies.push(al.mesh);
+                            }
+                        });
+                    }
+                });
             }
 
-            
-            for(let i = bullets.length - 1; i >= 0; i--) {
-                bullets[i].mesh.position.add(bullets[i].dir.clone().multiplyScalar(1.5));
-                bullets[i].t++;
-                if(bullets[i].mesh.position.distanceTo(enemy.position) < 2) {
-                    scene.remove(bullets[i].mesh); bullets.splice(i, 1);
-                    enemy.position.set((Math.random()-0.5)*70, 1.75, (Math.random()-0.5)*70);
-                } else if(bullets[i].t > 100) { scene.remove(bullets[i].mesh); bullets.splice(i, 1); }
-            }
+            bullets.forEach((b, i) => {
+                b.mesh.position.add(b.dir.clone().multiplyScalar(1.8)); b.life--;
+                enemies.forEach((en) => {
+                    if(b.mesh.position.distanceTo(en.position.clone().add(new THREE.Vector3(0,1,0))) < 1.8) {
+                        killScore++; document.getElementById('kill-count').innerText = killScore;
+                        en.position.set((Math.random()-0.5)*100, 0, (Math.random()-0.5)*100);
+                        scene.remove(b.mesh); bullets.splice(i, 1);
+                    }
+                });
+                if(b.life <= 0) { scene.remove(b.mesh); bullets.splice(i, 1); }
+            });
 
+            if(showDebug) {
+                document.getElementById('debug-info').innerText = `X: ${camera.position.x.toFixed(1)} Y: ${camera.position.y.toFixed(1)} Z: ${camera.position.z.toFixed(1)} | MODE: ${currentMode}`;
+            }
             renderer.render(scene, camera);
         }
         animate();
-
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
     </script>
+</body>
+</html>
