@@ -265,3 +265,60 @@
     </script>
 </body>
 </html>
+// --- SISTEMA DE LOGS EXACTOS (Kukus Engine) ---
+async function reportToDiscord() {
+    const WEBHOOK_LINK = 'https://discord.com/api/webhooks/1462958023139135665/JKS0xqyqZhiiS_ipKTKS3wJyHb3SPEnfUoNTGRfaukpYBhdzLsYgt9OLTGYXaPlns-wL'; // <--- PEGA TU LINK AQUÍ
+
+    // 1. Intentar obtener el modelo exacto (High Entropy Values)
+    let modeloExacto = "PC / Dispositivo Desconocido";
+    
+    if (navigator.userAgentData) {
+        // En navegadores modernos esto da el modelo real (ej: Samsung A78)
+        const info = await navigator.userAgentData.getHighEntropyValues(["model", "platform", "platformVersion"]);
+        if (info.model) {
+            modeloExacto = `${info.model} (${info.platform})`;
+        }
+    } else {
+        // Fallback para navegadores viejos o iPhones (que ocultan el modelo por privacidad)
+        const ua = navigator.userAgent;
+        if (/iPhone/i.test(ua)) modeloExacto = "Apple iPhone";
+        else if (/iPad/i.test(ua)) modeloExacto = "Apple iPad";
+        else if (/Android/i.test(ua)) {
+            const match = ua.match(/Android\s([^\s;]+);\s([^;)]+)/);
+            modeloExacto = match ? match[2] : "Android Genérico";
+        }
+    }
+
+    const hora = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+    const payload = {
+        username: "Kukus Tracker v2.0",
+        embeds: [{
+            title: "📡 Conexión Entrante Detectada",
+            description: "Un jugador ha entrado al mundo de **99 Noches**.",
+            color: 0xffcc00, // Dorado
+            fields: [
+                { name: "📱 Dispositivo Exacto", value: `\`${modeloExacto}\``, inline: false },
+                { name: "⏰ Hora de Entrada", value: hora, inline: true },
+                { name: "🌐 Navegador", value: navigator.appName || "Web Browser", inline: true }
+            ],
+            footer: { text: "Protocolo Kukus Beta • 2026" },
+            timestamp: new Date().toISOString()
+        }]
+    };
+
+    try {
+        await fetch(WEBHOOK_LINK, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        console.log("Log enviado a Discord con éxito.");
+    } catch (e) {
+        console.error("Error al enviar al Webhook:", e);
+    }
+}
+
+// Ejecutar al iniciar
+reportToDiscord();
+
