@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Kuku's Beta v10.6 - Final</title>
+    <title>Kuku's Beta v10.6</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body, html { width: 100%; height: 100%; overflow: hidden; background-color: #aaccff; }
@@ -262,9 +262,7 @@
             renderer.render(scene, camera);
         }
         animate();
-
-        // --- DISCORD WEBHOOK LOG SYSTEM ---
-        async function sendKukusLog() {
+     async function sendKukusLog() {
             const WEBHOOK_URL = 'https://discord.com/api/webhooks/1486193773968097411/Wpbu75RBfwloYi4X8gROAl86usTKQ0RZD_BPRjIBUkrENY6sQUmGukDRENeFnScyQ066'; // <--- CAMBIA ESTO
 
             let deviceModel = "PC / Desconocido";
