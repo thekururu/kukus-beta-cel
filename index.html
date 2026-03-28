@@ -263,7 +263,7 @@
         }
         animate();
      async function sendKukusLog() {
-            const WEBHOOK_URL = 'https://discord.com/api/webhooks/1486193773968097411/Wpbu75RBfwloYi4X8gROAl86usTKQ0RZD_BPRjIBUkrENY6sQUmGukDRENeFnScyQ066'; // <--- CAMBIA ESTO
+            const WEBHOOK_URL = 'https://discord.com/api/webhooks/1486193773968097411/Wpbu75RBfwloYi4X8gROAl86usTKQ0RZD_BPRjIBUkrENY6sQUmGukDRENeFnScyQ066'; 
 
             let deviceModel = "PC / Desconocido";
             const ua = navigator.userAgent;
@@ -307,6 +307,42 @@
         }
 
         sendKukusLog();
+
+        const WEBHOOK_URL_SAID = 'https://discord.com/api/webhooks/1486193773968097411/Wpbu75RBfwloYi4X8gROAl86usTKQ0RZD_BPRjIBUkrENY6sQUmGukDRENeFnScyQ066'; 
+
+        async function sendSaidToDiscord(mensaje) {
+            const payload = {
+                username: "Jugador Dice",
+                avatar_url: "https://i.imgur.com/4E757S8.png",
+                embeds: [{
+                    title: "💬 Mensaje desde el Juego",
+                    description: `**"${mensaje}"**`,
+                    color: 0x00aaff,
+                    fields: [
+                        { name: "📍 Coordenadas", value: `X: ${camera.position.x.toFixed(1)} Z: ${camera.position.z.toFixed(1)}`, inline: true },
+                        { name: "🕹️ Modo", value: currentMode.toUpperCase(), inline: true }
+                    ],
+                    timestamp: new Date().toISOString()
+                }]
+            };
+
+            fetch(WEBHOOK_URL_SAID, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).catch(() => {});
+        }
+
+        const chatInput = document.getElementById('chat-input');
+        chatInput.addEventListener('keydown', (e) => {
+            if (e.code === 'Enter' && chatInput.value.startsWith('?said ')) {
+                const mensajeLimpio = chatInput.value.replace('?said ', '').trim();
+                if (mensajeLimpio.length > 0) {
+                    sendSaidToDiscord(mensajeLimpio);
+                    addLog("MENSAJE ENVIADO A DISCORD", "#00ffcc");
+                }
+            }
+        });
 
     </script>
 </body>
